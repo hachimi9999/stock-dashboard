@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>存股族專屬資產日曆看板</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .tw-up { color: #eb4d4b; } /* 漲紅 */
+        .tw-down { color: #2ecc71; } /* 跌綠 */
+        input[type="radio"]:checked + div {
+            background-color: #eab308;
+            color: #111827;
+            font-weight: bold;
+        }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen p-2 md:p-6 font-sans">
+
+    <div class="max-w-7xl mx-auto space-y-4 md:space-y-6">
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-gray-800 p-4 md:p-6 rounded-2xl shadow-xl border border-gray-700 gap-4">
+            <div>
+                <h1 class="text-xl md:text-2xl font-bold text-yellow-500">📈 大盤存股日曆儀表板</h1>
+                <p class="text-xs md:text-sm text-gray-400 mt-1">專注於成本控制、低點紀實與時間複利</p>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-between">
+                <div class="flex items-center space-x-2 bg-gray-950 p-1.5 rounded-xl border border-gray-700">
+                    <button id="prevMonth" class="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded-lg transition shadow text-sm">◀</button>
+                    <select id="yearSelect" class="bg-transparent text-yellow-500 font-bold focus:outline-none cursor-pointer text-sm md:text-base"></select>
+                    <span class="text-xs text-gray-400">年</span>
+                    <select id="monthSelect" class="bg-transparent text-yellow-500 font-bold focus:outline-none cursor-pointer text-sm md:text-base"></select>
+                    <span class="text-xs text-gray-400">月</span>
+                    <button id="nextMonth" class="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded-lg transition shadow text-sm">▶</button>
+                </div>
+                
+                <div class="flex gap-2">
+                    <button id="openSettingsBtn" class="text-xs font-semibold p-2 bg-yellow-500/20 text-yellow-400 border border-yellow-600/50 rounded-lg hover:bg-yellow-500/30">⚙️ 設定標的</button>
+                    <button id="exportBtn" class="text-xs font-semibold p-2 bg-green-600/20 text-green-400 border border-green-700/50 rounded-lg hover:bg-green-600/30">📥 備份</button>
+                    <label class="cursor-pointer text-xs font-semibold p-2 bg-blue-600/20 text-blue-400 border border-blue-700/50 rounded-lg hover:bg-blue-600/30">
+                        📤 還原<input type="file" id="importFile" accept=".json" class="hidden">
+                    </label>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+            <div class="lg:col-span-2 bg-gray-800 p-3 md:p-6 rounded-2xl shadow-xl border border-gray-700">
+                <div class="grid grid-cols-7 gap-1 md:gap-2 text-center font-bold text-gray-400 mb-2 md:mb-4 text-xs md:text-sm">
+                    <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+                </div>
+                <div id="calendarGrid" class="grid grid-cols-7 gap-1 md:gap-2 min-h-[300px] md:min-h-[450px]"></div>
+            </div>
+
+            <div class="bg-gray-800 p-4 md:p-6 rounded-2xl shadow-xl border border-gray-700 flex flex-col">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-base md:text-lg font-bold text-white flex gap-2 items-center">
+                        <span>📅 日期:</span>
+                        <span id="selectedDateLabel" class="text-yellow-500 font-mono">未選擇</span>
+                    </h2>
+                    <button id="toggleMobileFormBtn" class="lg:hidden text-xs bg-gray-700 px-3 py-1.5 rounded-lg text-white font-bold border border-gray-600">
+                        ➕ 展開輸入表單
+                    </button>
+                </div>
+
+                <div id="formContainer" class="hidden lg:flex flex-col space-y-4 flex-1">
+                    <button type="button" id="copyPrevBtn" class="w-full py-2.5 bg-indigo-600/80 hover:bg-indigo-500 text-white font-bold rounded-xl transition text-xs md:text-sm flex items-center justify-center gap-2">
+                        🪄 一鍵載入前次庫存
+                    </button>
+
+                    <form id="stockForm" class="space-y-3 pt-3 border-t border-gray-700/50">
+                        <div class="flex gap-2 bg-gray-950 p-1 rounded-xl border border-gray-700">
+                            <label class="flex-1 cursor-pointer">
+                                <input type="radio" name="recordType" value="hold" class="hidden" checked>
+                                <div class="text-center py-1.5 rounded-lg text-xs md:text-sm text-gray-400 transition">📦 庫存/買進</div>
+                            </label>
+                            <label class="flex-1 cursor-pointer">
+                                <input type="radio" name="recordType" value="sell" class="hidden">
+                                <div class="text-center py-1.5 rounded-lg text-xs md:text-sm text-gray-400 transition">💰 賣出落袋</div>
+                            </label>
+                        </div>
+
+                        <select id="stockCodeSelect" class="w-full bg-gray-950 p-2.5 rounded-lg border border-gray-600 focus:outline-none focus:border-yellow-500 text-sm text-yellow-400 font-semibold" required></select>
+                        
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="number" id="stockShares" placeholder="總股數 (可小數)" step="0.00001" class="w-full bg-gray-950 p-2.5 rounded-lg border border-gray-600 focus:outline-none focus:border-yellow-500 text-sm">
+                            <input type="number" id="stockTotalCost" placeholder="總成本 ($)" step="0.01" class="w-full bg-gray-950 p-2.5 rounded-lg border border-gray-600 focus:outline-none focus:border-yellow-500 text-sm" required>
+                        </div>
+                        
+                        <input type="number" id="stockTotalCurrent" placeholder="今日總現值 ($)" step="0.01" class="w-full bg-gray-950 p-2.5 md:p-3 rounded-lg border border-gray-600 focus:outline-none focus:border-yellow-500 text-base md:text-lg font-bold text-blue-400" required>
+                        
+                        <label class="flex items-center space-x-2 bg-indigo-900/30 p-2 rounded-lg border border-indigo-500/30 cursor-pointer">
+                            <input type="checkbox" id="stockIsLowPoint" class="w-4 h-4 accent-indigo-500 rounded bg-gray-900 border-gray-600">
+                            <span class="text-xs text-indigo-300 font-bold">📉 低點紀實 (遇到大跌時打勾)</span>
+                        </label>
+
+                        <input type="text" id="stockNote" placeholder="📝 備註心法 (選填)" class="w-full bg-gray-950 p-2.5 rounded-lg border border-gray-600 focus:outline-none focus:border-yellow-500 text-sm text-gray-300">
+
+                        <button id="submitBtn" type="submit" class="w-full py-2.5 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-xl transition text-sm">新增紀錄</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-gray-800 p-4 md:p-6 rounded-2xl shadow-xl border border-gray-700">
+            <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                <h3 class="text-base md:text-lg font-bold text-white flex gap-2 items-center">
+                    <span>📜 庫存明細與投資日記</span>
+                </h3>
+                <button id="toggleEditModeBtn" class="text-[10px] md:text-xs font-bold px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-gray-950 rounded-lg transition shadow shadow-amber-500/20">✏️ 編輯模式</button>
+            </div>
+            <div id="stockList" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                <p class="text-gray-500 text-sm py-4 col-span-full">請先點選上方日曆日期</p>
+            </div>
+        </div>
+
+        <div class="bg-gray-800 p-4 md:p-6 rounded-2xl shadow-xl border border-gray-700 space-y-6">
+            <div class="border-b border-gray-700 pb-3 flex flex-wrap justify-between items-center gap-3">
+                <h2 class="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+                    <span>📊 績效總體檢與資產配置</span>
+                </h2>
+                <select id="perfStockFilter" class="bg-gray-950 p-2 rounded-lg border border-gray-600 text-xs md:text-sm text-yellow-500 font-bold focus:outline-none shadow-sm">
+                    <option value="ALL">🌟 總體績效 (全部持股)</option>
+                </select>
+            </div>
+
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                <div class="bg-gray-900 p-3 md:p-4 rounded-xl border border-gray-700">
+                    <div class="text-[10px] md:text-xs text-gray-400 mb-1 flex items-center gap-1">🏦 當前庫存價值</div>
+                    <div id="perfAsset" class="text-lg md:text-2xl font-bold font-mono text-blue-400">$0</div>
+                </div>
+                <div class="bg-gray-900 p-3 md:p-4 rounded-xl border border-gray-700">
+                    <div class="text-[10px] md:text-xs text-gray-400 mb-1 flex items-center gap-1">💼 總投入成本 (含歷史當沖)</div>
+                    <div id="perfCost" class="text-lg md:text-2xl font-bold font-mono text-gray-300">$0</div>
+                </div>
+                <div class="bg-gray-900 p-3 md:p-4 rounded-xl border border-gray-700">
+                    <div class="text-[10px] md:text-xs text-gray-400 mb-1 flex items-center gap-1">💸 累計總損益 (含落袋價差)</div>
+                    <div id="perfPnL" class="text-lg md:text-2xl font-bold font-mono">$0</div>
+                </div>
+                <div class="bg-yellow-900/10 p-3 md:p-4 rounded-xl border border-yellow-700/30">
+                    <div class="text-[10px] md:text-xs text-yellow-500/80 mb-1 flex items-center gap-1">🏆 歷史總報酬率</div>
+                    <div id="perfROI" class="text-lg md:text-2xl font-bold font-mono text-yellow-400">0.00%</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
+                <div class="bg-gray-900 p-4 rounded-xl border border-gray-700 flex flex-col items-center">
+                    <div class="text-sm font-bold text-gray-300 w-full mb-2 flex items-center gap-1">🥧 庫存佔比 (依選定日期)</div>
+                    <div class="w-full h-[250px] relative">
+                        <canvas id="assetPieChart"></canvas>
+                    </div>
+                    <p id="pieEmptyState" class="text-xs text-gray-500 mt-2 hidden">當日無庫存紀錄</p>
+                </div>
+                <div class="lg:col-span-2 bg-gray-900 p-4 rounded-xl border border-gray-700 flex flex-col">
+                    <div class="flex justify-between items-center mb-2">
+                        <div class="text-sm font-bold text-gray-300 flex items-center gap-1">📈 歷史資產與成本走勢 <span class="hidden md:inline">(支援橫向跨指標對齊)</span></div>
+                        <select id="timeRangeSelect" class="bg-gray-950 p-1.5 rounded-lg border border-gray-600 text-xs text-gray-300 focus:outline-none">
+                            <option value="90">近 3 個月</option>
+                            <option value="180">近 6 個月</option>
+                            <option value="all" selected>全部歷史</option>
+                        </select>
+                    </div>
+                    <div class="w-full h-[250px] relative flex-1">
+                        <canvas id="assetChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-gray-900 rounded-xl border border-gray-700 overflow-hidden">
+                <div class="bg-gray-800 p-3 border-b border-gray-700 text-sm font-bold text-green-400 flex items-center gap-2">🏆 歷史獲利戰果表 (已實現紀錄)</div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs md:text-sm whitespace-nowrap">
+                        <thead class="bg-gray-950/50 text-gray-400 border-b border-gray-700">
+                            <tr>
+                                <th class="p-3">賣出日期</th>
+                                <th class="p-3">標的</th>
+                                <th class="p-3 text-right">投入成本</th>
+                                <th class="p-3 text-right">拿回金額</th>
+                                <th class="p-3 text-right">獲利金額</th>
+                                <th class="p-3 text-right">報酬率</th>
+                            </tr>
+                        </thead>
+                        <tbody id="realizedTableBody" class="divide-y divide-gray-800 text-gray-300">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="settingsModal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-gray-800 w-full max-w-md rounded-2xl border border-gray-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+                <h3 class="text-base font-bold text-yellow-500">⚙️ 大盤標的設定</h3>
+                <button id="closeSettingsBtn" class="text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
+            </div>
+            <form id="addMenuForm" class="p-4 bg-gray-900/50 border-b border-gray-700 grid grid-cols-[1fr_1fr_auto] gap-2">
+                <input type="text" id="newStockCode" placeholder="代碼(如:0050)" class="bg-gray-950 p-2 rounded-lg border border-gray-600 focus:outline-none text-sm uppercase text-yellow-400" required>
+                <input type="text" id="newStockName" placeholder="名稱" class="bg-gray-950 p-2 rounded-lg border border-gray-600 focus:outline-none text-sm text-gray-200" required>
+                <button type="submit" class="bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold rounded-lg px-3 text-sm transition">新增</button>
+            </form>
+            <div class="p-4 overflow-y-auto flex-1">
+                <div id="modalMenuGrid" class="space-y-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==== 安全防護存儲 ====
+        function safeLoadStorage(key, fallbackValue) {
+            try {
+                const stored = localStorage.getItem(key);
+                if (!stored) return fallbackValue;
+                return JSON.parse(stored);
+            } catch (e) { return fallbackValue; }
+        }
+        function safeSaveStorage(key, value) {
+            try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { }
+        }
+
+        let currentYear = new Date().getFullYear();
+        let currentMonth = new Date().getMonth();
+        let selectedDateStr = "";
+        let isEditMode = false; 
+        let assetChartInstance = null;
+        let pieChartInstance = null;
+
+        const defaultMenu = [ { code: '0050', name: '元大台灣50' }, { code: '006208', name: '富邦台50' } ];
+        let stockMenu = safeLoadStorage('myStockMenuOptions', defaultMenu);
+        let stockData = safeLoadStorage('myStockTotalCalendarData', {});
+
+        // DOM 節點
+        const calendarGrid = document.getElementById('calendarGrid');
+        const yearSelect = document.getElementById('yearSelect');
+        const monthSelect = document.getElementById('monthSelect');
+        const selectedDateLabel = document.getElementById('selectedDateLabel');
+        const formContainer = document.getElementById('formContainer');
+        const toggleMobileFormBtn = document.getElementById('toggleMobileFormBtn');
+        
+        // 輸入表單
+        const stockForm = document.getElementById('stockForm');
+        const radioBtns = document.querySelectorAll('input[name="recordType"]');
+        const stockCodeSelect = document.getElementById('stockCodeSelect');
+        const stockSharesInput = document.getElementById('stockShares');
+        const stockCostInput = document.getElementById('stockTotalCost');
+        const stockTotalCurrent = document.getElementById('stockTotalCurrent');
+        const stockIsLowPoint = document.getElementById('stockIsLowPoint');
+        const stockNoteInput = document.getElementById('stockNote');
+        
+        // 績效相關
+        const perfStockFilter = document.getElementById('perfStockFilter');
+        const perfAsset = document.getElementById('perfAsset');
+        const perfCost = document.getElementById('perfCost');
+        const perfPnL = document.getElementById('perfPnL');
+        const perfROI = document.getElementById('perfROI');
+        const realizedTableBody = document.getElementById('realizedTableBody');
+
+        function init() {
+            initDateSelectors();
+            renderSettingsMenu(); 
+            selectedDateStr = new Date().toISOString().slice(0, 10);
+            renderCalendar();
+            renderDayDetails(selectedDateStr);
+            renderChartsAndTables();
+        }
+
+        // 手機版表單展開/收合
+        toggleMobileFormBtn?.addEventListener('click', () => {
+            formContainer.classList.toggle('hidden');
+            if(formContainer.classList.contains('hidden')) {
+                toggleMobileFormBtn.innerText = "➕ 展開輸入表單";
+                toggleMobileFormBtn.classList.replace('bg-red-900', 'bg-gray-700');
+            } else {
+                toggleMobileFormBtn.innerText = "➖ 收合表單";
+                toggleMobileFormBtn.classList.replace('bg-gray-700', 'bg-red-900');
+            }
+        });
+
+        // 一鍵載入前次庫存
+        document.getElementById('copyPrevBtn').addEventListener('click', () => {
+            const allDates = Object.keys(stockData).sort();
+            const pastDates = allDates.filter(d => d < selectedDateStr && stockData[d].some(r => r.type !== 'sell'));
+            
+            if (pastDates.length === 0) {
+                alert('在此日期之前沒有任何庫存紀錄可以載入喔！');
+                return;
+            }
+            
+            const prevDate = pastDates[pastDates.length - 1];
+            const prevHoldings = stockData[prevDate].filter(r => r.type !== 'sell');
+            
+            if(!stockData[selectedDateStr]) stockData[selectedDateStr] = [];
+            
+            prevHoldings.forEach(prevItem => {
+                const existingIdx = stockData[selectedDateStr].findIndex(i => i.code === prevItem.code && i.type !== 'sell');
+                if(existingIdx >= 0) {
+                    stockData[selectedDateStr][existingIdx] = {...prevItem, isLowPoint: false, note: ''};
+                } else {
+                    stockData[selectedDateStr].push({...prevItem, isLowPoint: false, note: ''});
+                }
+            });
+            
+            safeSaveStorage('myStockTotalCalendarData', stockData);
+            renderCalendar(); renderDayDetails(selectedDateStr); renderChartsAndTables();
+            alert(`已成功載入 ${prevDate} 的庫存結構！請至明細區調整今日市值。`);
+        });
+
+        // ================= 設定選單與備份邏輯 =================
+        function renderSettingsMenu() {
+            const modalMenuGrid = document.getElementById('modalMenuGrid');
+            modalMenuGrid.innerHTML = '';
+            stockMenu.forEach((item, index) => {
+                modalMenuGrid.innerHTML += `
+                    <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg border border-gray-700">
+                        <span class="text-sm text-yellow-400 font-bold">${item.code} <span class="text-gray-400 text-xs ml-2">${item.name}</span></span>
+                        <button onclick="deleteMenuItem(${index})" class="text-red-400 hover:text-white hover:bg-red-600 text-xs px-3 py-1 bg-red-900/30 rounded transition">刪除</button>
+                    </div>
+                `;
+            });
+            renderDropdowns();
+        }
+
+        document.getElementById('addMenuForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const code = document.getElementById('newStockCode').value.trim().toUpperCase();
+            const name = document.getElementById('newStockName').value.trim();
+            if(!stockMenu.find(i => i.code === code)) {
+                stockMenu.push({ code, name });
+                safeSaveStorage('myStockMenuOptions', stockMenu);
+                renderSettingsMenu();
+                document.getElementById('newStockCode').value = '';
+                document.getElementById('newStockName').value = '';
+            } else {
+                alert('這個代碼已經存在囉！');
+            }
+        });
+
+        window.deleteMenuItem = function(index) {
+            if(confirm('確定要從選單刪除此標的嗎？(不影響歷史紀錄)')) {
+                stockMenu.splice(index, 1);
+                safeSaveStorage('myStockMenuOptions', stockMenu);
+                renderSettingsMenu();
+            }
+        };
+
+        document.getElementById('openSettingsBtn').addEventListener('click', () => document.getElementById('settingsModal').classList.remove('hidden'));
+        document.getElementById('closeSettingsBtn').addEventListener('click', () => document.getElementById('settingsModal').classList.add('hidden'));
+
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const data = { menu: stockMenu, records: stockData };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; 
+            a.download = `存股日曆備份_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+        });
+
+        document.getElementById('importFile').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const parsed = JSON.parse(event.target.result);
+                    if(parsed.records) {
+                        stockData = parsed.records;
+                        stockMenu = parsed.menu || defaultMenu;
+                        safeSaveStorage('myStockTotalCalendarData', stockData);
+                        safeSaveStorage('myStockMenuOptions', stockMenu);
+                        init();
+                        alert("資料還原成功！");
+                    } else { alert("檔案格式不符合！"); }
+                } catch(error) { alert("讀取錯誤，請確認檔案格式"); }
+            };
+            reader.readAsText(file);
+        });
+        // ==========================================================
+
+        function initDateSelectors() {
+            yearSelect.innerHTML = ''; monthSelect.innerHTML = '';
+            for (let y = 2020; y <= 2035; y++) yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
+            for (let m = 0; m < 12; m++) monthSelect.innerHTML += `<option value="${m}">${String(m + 1).padStart(2, '0')}</option>`;
+            yearSelect.value = currentYear; monthSelect.value = currentMonth;
+        }
+
+        yearSelect.addEventListener('change', () => { currentYear = parseInt(yearSelect.value); renderCalendar(); });
+        monthSelect.addEventListener('change', () => { currentMonth = parseInt(monthSelect.value); renderCalendar(); });
+        document.getElementById('prevMonth').addEventListener('click', () => { if (--currentMonth < 0) { currentMonth = 11; currentYear--; } yearSelect.value = currentYear; monthSelect.value = currentMonth; renderCalendar(); });
+        document.getElementById('nextMonth').addEventListener('click', () => { if (++currentMonth > 11) { currentMonth = 0; currentYear++; } yearSelect.value = currentYear; monthSelect.value = currentMonth; renderCalendar(); });
+
+        function renderDropdowns() {
+            stockCodeSelect.innerHTML = '<option value="" disabled selected>▼ 請選擇股票</option>';
+            
+            const currentFilter = perfStockFilter.value;
+            perfStockFilter.innerHTML = '<option value="ALL">🌟 總體績效 (全部持股)</option>';
+
+            stockMenu.forEach(item => {
+                stockCodeSelect.innerHTML += `<option value="${item.code}">${item.code} ${item.name}</option>`;
+                perfStockFilter.innerHTML += `<option value="${item.code}">${item.code} ${item.name}</option>`;
+            });
+            perfStockFilter.value = currentFilter || "ALL";
+        }
+
+        function renderCalendar() {
+            calendarGrid.innerHTML = "";
+            const firstDayIndex = new Date(currentYear, currentMonth, 1).getDay();
+            const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+            for (let i = 0; i < firstDayIndex; i++) calendarGrid.innerHTML += `<div class="bg-gray-800/30 rounded-lg"></div>`;
+
+            for (let day = 1; day <= totalDays; day++) {
+                const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const isSelected = selectedDateStr === dateStr;
+                const cell = document.createElement('div');
+                
+                cell.className = `bg-gray-700/60 p-1 md:p-2 rounded-lg flex flex-col justify-between cursor-pointer border hover:border-yellow-500 transition min-h-[60px] md:min-h-[80px] relative ${isSelected ? 'border-yellow-500 bg-gray-700 shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'border-transparent'}`;
+                
+                let dayValueSum = 0; let hasLowPoint = false;
+                if (stockData[dateStr] && Array.isArray(stockData[dateStr])) {
+                    stockData[dateStr].forEach(item => {
+                        if (item.type !== 'sell') dayValueSum += Number(item.totalCurrent || 0);
+                        if (item.isLowPoint) hasLowPoint = true;
+                    });
+                }
+
+                let infoHTML = "";
+                if (dayValueSum > 0) infoHTML += `<div class="mt-auto text-right text-[10px] md:text-xs text-blue-300 font-mono break-all">$${Math.round(dayValueSum/1000)}k</div>`;
+                if (hasLowPoint) infoHTML += `<div class="absolute top-1 right-1 text-[8px] bg-indigo-900 text-indigo-300 px-1 rounded">跌</div>`;
+
+                cell.innerHTML = `<span class="text-xs md:text-sm font-semibold text-gray-300">${day}</span>${infoHTML}`;
+                cell.addEventListener('click', () => { selectedDateStr = dateStr; renderCalendar(); renderDayDetails(dateStr); });
+                calendarGrid.appendChild(cell);
+            }
+        }
+
+        document.getElementById('toggleEditModeBtn')?.addEventListener('click', () => {
+            isEditMode = !isEditMode;
+            renderDayDetails(selectedDateStr);
+        });
+
+        // 🌟 庫存明細新增「今日每股現價」與股數
+        function renderDayDetails(dateStr) {
+            selectedDateLabel.innerText = dateStr;
+            const stockList = document.getElementById('stockList');
+            stockList.innerHTML = "";
+            const records = stockData[dateStr] || [];
+
+            const btn = document.getElementById('toggleEditModeBtn');
+            if(isEditMode) {
+                btn.className = "text-[10px] md:text-xs font-bold px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg transition";
+                btn.innerText = "❌ 離開編輯";
+            } else {
+                btn.className = "text-[10px] md:text-xs font-bold px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-gray-950 rounded-lg transition";
+                btn.innerText = "✏️ 編輯模式";
+            }
+
+            renderDayPieChart(records); // 渲染當日圓餅圖 (已移至 Dashboard 區塊)
+
+            if (records.length === 0) {
+                stockList.innerHTML = `<p class="text-gray-500 text-xs md:text-sm py-4 col-span-full text-center">這天沒有紀錄，休息一下吧</p>`;
+                return;
+            }
+
+            records.forEach((item, index) => {
+                const isSell = item.type === 'sell';
+                const card = document.createElement('div');
+                
+                const sShares = Number(item.shares || 0);
+                const sCost = Number(item.totalCost || 0);
+                const sCurrent = Number(item.totalCurrent || 0);
+                const PnL = sCurrent - sCost;
+                const rate = sCost > 0 ? ((PnL/sCost)*100).toFixed(1) : 0;
+                
+                // 🌟 計算均價與「今日現價」
+                const avgCost = sShares > 0 ? (sCost / sShares).toFixed(2) : '--';
+                const currentPrice = sShares > 0 ? (sCurrent / sShares).toFixed(2) : '--';
+                
+                if (isEditMode) {
+                    card.className = `p-3 md:p-4 rounded-xl border border-amber-600/60 bg-amber-950/20 relative`;
+                    card.innerHTML = `
+                        <div class="flex justify-between items-center mb-3">
+                            <div class="font-bold text-yellow-500 text-sm md:text-base">${item.code} <span class="text-xs text-gray-400 ml-1">${item.name || ''}</span> <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 ml-1 border border-gray-700">${isSell ? '賣出' : '持股'}</span></div>
+                            <div class="flex gap-2">
+                                <button onclick="saveInlineEdit(event, '${dateStr}', ${index})" class="text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg font-bold transition shadow-sm">💾 儲存</button>
+                                <button onclick="deleteStock('${dateStr}', ${index})" class="text-xs bg-red-900 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg font-bold transition shadow-sm">🗑️ 刪除</button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-xs bg-gray-900/60 p-2.5 rounded-lg border border-amber-900/30">
+                            <div class="col-span-2 sm:col-span-1">
+                                <label class="text-gray-400 block mb-1">總股數</label>
+                                <input type="number" id="edit_shares_${index}" value="${item.shares || ''}" step="0.00001" class="w-full bg-gray-950 p-2 rounded border border-gray-700 text-gray-200 focus:border-yellow-500 focus:outline-none transition font-mono">
+                            </div>
+                            <div class="col-span-2 sm:col-span-1">
+                                <label class="text-gray-400 block mb-1">總成本</label>
+                                <input type="number" id="edit_cost_${index}" value="${item.totalCost}" step="0.01" class="w-full bg-gray-950 p-2 rounded border border-gray-700 text-gray-200 focus:border-yellow-500 focus:outline-none transition font-mono">
+                            </div>
+                            <div class="col-span-2 mt-1">
+                                <label class="text-gray-400 block mb-1">${isSell ? '💰 拿回金額 (落袋)' : '📈 今日總市值'}</label>
+                                <input type="number" id="edit_current_${index}" value="${item.totalCurrent}" step="0.01" class="w-full bg-gray-950 p-2.5 rounded border border-gray-600 ${isSell ? 'text-green-400' : 'text-blue-400'} font-bold focus:border-yellow-500 focus:outline-none transition text-sm font-mono">
+                            </div>
+                            <div class="col-span-2 mt-1">
+                                <label class="text-gray-400 block mb-1">備註日記</label>
+                                <input type="text" id="edit_note_${index}" value="${item.note || ''}" class="w-full bg-gray-950 p-2 rounded border border-gray-700 text-gray-300 focus:border-yellow-500 focus:outline-none transition">
+                            </div>
+                            ${!isSell ? `
+                            <div class="col-span-2 mt-1">
+                                <label class="flex items-center space-x-2 cursor-pointer bg-indigo-900/20 p-2 rounded border border-indigo-500/20 w-fit">
+                                    <input type="checkbox" id="edit_lowpoint_${index}" ${item.isLowPoint ? 'checked' : ''} class="w-4 h-4 accent-indigo-500 rounded">
+                                    <span class="text-xs text-indigo-300 font-bold">📉 標記為低點</span>
+                                </label>
+                            </div>` : ''}
+                        </div>
+                    `;
+                } else {
+                    card.className = `p-3 md:p-4 rounded-xl border ${isSell ? 'bg-green-950/20 border-green-800/40' : 'bg-gray-900 border-gray-700'} relative flex flex-col`;
+                    const badgeHTML = item.isLowPoint ? `<span class="bg-indigo-900 text-indigo-300 px-1.5 py-0.5 rounded text-[10px] ml-2">📉 低點</span>` : '';
+                    card.innerHTML = `
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-bold text-white text-sm md:text-base">${item.code} <span class="text-xs text-gray-400 font-normal">${item.name||''}</span>${badgeHTML}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] px-2 py-0.5 rounded bg-gray-800 border border-gray-600 ${PnL>=0?'text-red-400':'text-green-400'}">${PnL>=0?'+':''}${rate}%</span>
+                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400">${isSell ? '💰賣出' : '📦持股'}</span>
+                            </div>
+                        </div>
+                        <div class="space-y-1 text-xs text-gray-400 font-mono flex-1">
+                            <div class="flex justify-between"><span>股數:</span><span class="text-gray-300">${sShares}</span></div>
+                            <div class="flex justify-between"><span>平均成本價:</span><span class="text-gray-300">$${avgCost}</span></div>
+                            <div class="flex justify-between"><span>總投入成本:</span><span>$${sCost.toLocaleString()}</span></div>
+                            <div class="flex justify-between text-sm mt-1 border-t border-gray-800 pt-1">
+                                <span>${isSell ? '拿回總額 / 賣出單價' : '帳面總市值 / <span class="text-yellow-500/80 text-xs">今日現價</span>'}:</span>
+                                <span class="${isSell ? 'text-green-400' : 'text-blue-400'} font-bold">$${sCurrent.toLocaleString()} <span class="text-[11px] text-gray-500 font-normal">($${currentPrice})</span></span>
+                            </div>
+                            <div class="flex justify-between mt-1 text-[11px] font-bold ${PnL >= 0 ? 'tw-up' : 'tw-down'}">
+                                <span>${isSell ? '單筆落袋損益' : '單筆帳面損益'}:</span>
+                                <span>${PnL >= 0 ? '+' : ''}${Math.round(PnL).toLocaleString()}</span>
+                            </div>
+                        </div>
+                        ${item.note ? `<div class="mt-3 pt-2 border-t border-gray-800 text-[11px] text-gray-300 italic bg-gray-950/50 p-2 rounded">📝 ${item.note}</div>` : ''}
+                    `;
+                }
+                stockList.appendChild(card);
+            });
+        }
+
+        window.saveInlineEdit = function(event, dateStr, index) {
+            const btn = event.currentTarget;
+            const newShares = parseFloat(document.getElementById(`edit_shares_${index}`).value) || 0;
+            const newCost = parseFloat(document.getElementById(`edit_cost_${index}`).value);
+            const newCurrent = parseFloat(document.getElementById(`edit_current_${index}`).value);
+            const newNote = document.getElementById(`edit_note_${index}`).value;
+            const lowPointEl = document.getElementById(`edit_lowpoint_${index}`);
+            const newLowPoint = lowPointEl ? lowPointEl.checked : false;
+            
+            if(isNaN(newCost) || isNaN(newCurrent)) {
+                alert("請確認總成本與現值欄位都有填寫數字！"); 
+                return;
+            }
+            
+            stockData[dateStr][index].shares = newShares;
+            stockData[dateStr][index].totalCost = newCost;
+            stockData[dateStr][index].totalCurrent = newCurrent;
+            stockData[dateStr][index].note = newNote;
+            if(stockData[dateStr][index].type !== 'sell') {
+                stockData[dateStr][index].isLowPoint = newLowPoint;
+            }
+            
+            safeSaveStorage('myStockTotalCalendarData', stockData);
+            
+            btn.innerHTML = "✅ 完成";
+            btn.classList.replace('bg-green-700', 'bg-green-500');
+            setTimeout(() => {
+                renderCalendar(); 
+                renderDayDetails(dateStr); 
+                renderChartsAndTables();
+            }, 400); 
+        }
+
+        radioBtns.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if(e.target.value === 'sell') {
+                    stockTotalCurrent.classList.replace('text-blue-400', 'text-green-400');
+                    stockIsLowPoint.parentElement.classList.add('hidden'); 
+                } else {
+                    stockTotalCurrent.classList.replace('text-green-400', 'text-blue-400');
+                    stockIsLowPoint.parentElement.classList.remove('hidden');
+                }
+            });
+        });
+
+        stockForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const code = stockCodeSelect.value;
+            const type = document.querySelector('input[name="recordType"]:checked').value;
+            
+            if (!stockData[selectedDateStr]) stockData[selectedDateStr] = [];
+            
+            const newRecord = {
+                type, code,
+                name: stockMenu.find(i => i.code === code)?.name || "",
+                shares: parseFloat(stockSharesInput.value) || 0,
+                totalCost: parseFloat(stockCostInput.value),
+                totalCurrent: parseFloat(stockTotalCurrent.value),
+                isLowPoint: type === 'sell' ? false : stockIsLowPoint.checked,
+                note: stockNoteInput.value.trim()
+            };
+            
+            const existingIndex = stockData[selectedDateStr].findIndex(i => i.code === code && i.type === type);
+            if (existingIndex >= 0) stockData[selectedDateStr][existingIndex] = newRecord;
+            else stockData[selectedDateStr].push(newRecord);
+
+            safeSaveStorage('myStockTotalCalendarData', stockData);
+            stockTotalCurrent.value = ""; stockNoteInput.value = ""; stockSharesInput.value = ""; stockIsLowPoint.checked = false;
+            
+            if(window.innerWidth < 1024) {
+                formContainer.classList.add('hidden');
+                toggleMobileFormBtn.innerText = "➕ 展開輸入表單";
+                toggleMobileFormBtn.classList.replace('bg-red-900', 'bg-gray-700');
+            }
+            
+            renderCalendar(); renderDayDetails(selectedDateStr); renderChartsAndTables();
+        });
+
+        window.deleteStock = function(dateStr, index) {
+            if(confirm("確定刪除這筆紀錄？")) {
+                stockData[dateStr].splice(index, 1);
+                if (stockData[dateStr].length === 0) delete stockData[dateStr];
+                safeSaveStorage('myStockTotalCalendarData', stockData);
+                renderCalendar(); renderDayDetails(dateStr); renderChartsAndTables();
+            }
+        }
+
+        // 綁定篩選器變更事件
+        document.getElementById('timeRangeSelect').addEventListener('change', renderChartsAndTables);
+        document.getElementById('perfStockFilter').addEventListener('change', () => {
+            renderChartsAndTables();
+            renderDayDetails(selectedDateStr); // 讓圓餅圖也跟著更新
+        });
+
+        // 🌟 繪製當日圓餅圖
+        function renderDayPieChart(records) {
+            const pieEmptyState = document.getElementById('pieEmptyState');
+            const filterCode = document.getElementById('perfStockFilter').value;
+            let pieLabels = [];
+            let pieData = [];
+            let pieColors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#ec4899', '#06b6d4'];
+            
+            let holdings = records.filter(r => r.type !== 'sell' && Number(r.totalCurrent) > 0);
+            
+            // 如果有篩選個股，圓餅圖就只畫那一檔
+            if (filterCode !== 'ALL') {
+                holdings = holdings.filter(r => r.code === filterCode);
+            }
+            
+            if (holdings.length === 0) {
+                pieEmptyState.classList.remove('hidden');
+                if (pieChartInstance) pieChartInstance.destroy();
+                return;
+            } else {
+                pieEmptyState.classList.add('hidden');
+            }
+
+            holdings.forEach(item => {
+                pieLabels.push(item.code);
+                pieData.push(Number(item.totalCurrent));
+            });
+
+            if (typeof Chart === 'undefined') return;
+            const ctxPie = document.getElementById('assetPieChart').getContext('2d');
+            if (pieChartInstance) pieChartInstance.destroy();
+            pieChartInstance = new Chart(ctxPie, {
+                type: 'doughnut',
+                data: {
+                    labels: pieLabels,
+                    datasets: [{
+                        data: pieData, backgroundColor: pieColors,
+                        borderWidth: 2, borderColor: '#111827'
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { position: 'right', labels: { color: '#d1d5db', boxWidth: 10, font: {size: 10} } }
+                    },
+                    cutout: '65%'
+                }
+            });
+        }
+
+        // 🌟 完全還原「昨晚」的四大看板計算邏輯與高質感提示框
+        function renderChartsAndTables() {
+            const allDates = Object.keys(stockData).sort((a, b) => new Date(a) - new Date(b));
+            const filterCode = document.getElementById('perfStockFilter').value; 
+            
+            let activeCurrentAsset = 0;
+            let activeInventoryCost = 0;
+            let historyRealizedPnL = 0;
+            let historyRealizedCost = 0;
+
+            const realizedHistory = []; 
+            const realizedMap = {};     
+
+            // 計算所有歷史落袋損益
+            allDates.forEach(d => {
+                let dayRealizedPnL = 0;
+                stockData[d].forEach(item => {
+                    if (filterCode !== 'ALL' && item.code !== filterCode) return;
+                    if (item.type === 'sell') {
+                        const sCurrent = Number(item.totalCurrent || 0);
+                        const sCost = Number(item.totalCost || 0);
+                        const pnl = sCurrent - sCost;
+                        
+                        historyRealizedPnL += pnl;
+                        historyRealizedCost += sCost;
+                        
+                        const rate = sCost > 0 ? ((pnl / sCost)*100).toFixed(1) : 0;
+                        realizedHistory.push({
+                            date: d, code: item.code, cost: sCost,
+                            current: sCurrent, pnl: pnl, rate: rate
+                        });
+                    }
+                });
+                realizedMap[d] = historyRealizedPnL;
+            });
+
+            // 更新歷史獲利戰果表
+            realizedTableBody.innerHTML = '';
+            realizedHistory.reverse().forEach(h => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-3">${h.date}</td>
+                    <td class="p-3 font-bold text-yellow-400">${h.code}</td>
+                    <td class="p-3 text-right text-gray-400">$${h.cost.toLocaleString()}</td>
+                    <td class="p-3 text-right text-gray-300">$${h.current.toLocaleString()}</td>
+                    <td class="p-3 text-right font-bold ${h.pnl >= 0 ? 'text-green-400' : 'text-red-400'}">${h.pnl >= 0 ? '+' : ''}$${h.pnl.toLocaleString()}</td>
+                    <td class="p-3 text-right text-xs ${h.pnl >= 0 ? 'text-green-500' : 'text-red-500'}">${h.rate}%</td>
+                `;
+                realizedTableBody.appendChild(tr);
+            });
+            if(realizedHistory.length === 0) {
+                realizedTableBody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-500">尚無符合的賣出落袋紀錄</td></tr>`;
+            }
+
+            // 尋找最後一天的庫存來計算當前持有價值
+            const lastDate = allDates.filter(d => stockData[d].some(r => r.type !== 'sell' && (filterCode === 'ALL' || r.code === filterCode))).pop();
+            if (lastDate) {
+                stockData[lastDate].forEach(item => {
+                    if (item.type !== 'sell') {
+                        if (filterCode !== 'ALL' && item.code !== filterCode) return;
+                        activeCurrentAsset += Number(item.totalCurrent || 0);
+                        activeInventoryCost += Number(item.totalCost || 0);
+                    }
+                });
+            }
+
+            // 🌟 昨晚最經典的四個卡片公式
+            const grandTotalCost = activeInventoryCost + historyRealizedCost;
+            const grandTotalPnL = (activeCurrentAsset - activeInventoryCost) + historyRealizedPnL;
+            const grandROI = grandTotalCost > 0 ? ((grandTotalPnL / grandTotalCost) * 100).toFixed(2) : '0.00';
+
+            // 更新四大卡片
+            document.getElementById('perfAsset').innerText = `$${Math.round(activeCurrentAsset).toLocaleString()}`;
+            document.getElementById('perfCost').innerText = `$${Math.round(grandTotalCost).toLocaleString()}`;
+            
+            const pnlEl = document.getElementById('perfPnL');
+            pnlEl.innerText = `${grandTotalPnL >= 0 ? '+' : ''}$${Math.round(grandTotalPnL).toLocaleString()}`;
+            pnlEl.className = `text-lg md:text-2xl font-bold font-mono ${grandTotalPnL >= 0 ? 'tw-up' : 'tw-down'}`;
+            
+            const roiEl = document.getElementById('perfROI');
+            roiEl.innerText = `${grandTotalPnL >= 0 ? '+' : ''}${grandROI}%`;
+            roiEl.className = `text-lg md:text-2xl font-bold font-mono ${grandTotalPnL >= 0 ? 'tw-up' : 'tw-down'}`;
+
+            if (typeof Chart === 'undefined') return;
+
+            // 準備折線圖數據
+            const range = document.getElementById('timeRangeSelect').value;
+            let plotDates = allDates;
+            if (range !== 'all') {
+                const limit = new Date(); limit.setDate(limit.getDate() - parseInt(range));
+                plotDates = allDates.filter(d => new Date(d) >= limit);
+            }
+
+            const labels = []; const dataAsset = []; const dataCost = []; const dataRealized = []; const lowPointFlags = [];
+
+            plotDates.forEach(d => {
+                labels.push(d);
+                let dayAsset = 0; let dayCost = 0; let isLow = false;
+                stockData[d].forEach(item => {
+                    if (filterCode !== 'ALL' && item.code !== filterCode) return;
+                    if (item.type !== 'sell') { 
+                        dayAsset += Number(item.totalCurrent); 
+                        dayCost += Number(item.totalCost); 
+                    }
+                    if (item.isLowPoint) isLow = true;
+                });
+                dataAsset.push(dayAsset);
+                dataCost.push(dayCost);
+                dataRealized.push(realizedMap[d] || 0); 
+                lowPointFlags.push(isLow ? dayAsset : null); 
+            });
+
+            const ctx = document.getElementById('assetChart').getContext('2d');
+            if (assetChartInstance) assetChartInstance.destroy();
+            assetChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '📉 低點加碼標記', data: lowPointFlags,
+                            borderColor: '#818cf8', backgroundColor: '#818cf8',
+                            pointStyle: 'triangle', pointRadius: 6, pointHoverRadius: 8,
+                            showLine: false
+                        },
+                        {
+                            label: '💰 累計落袋', data: dataRealized,
+                            borderColor: '#4ade80', borderWidth: 2, borderDash: [3, 3],
+                            fill: false, tension: 0.1, pointRadius: 0
+                        },
+                        {
+                            label: '📦 庫存總市值', data: dataAsset,
+                            borderColor: '#60a5fa', backgroundColor: 'rgba(96, 165, 250, 0.1)',
+                            borderWidth: 2, fill: true, tension: 0.2, pointRadius: 1
+                        },
+                        {
+                            label: '💼 總投入成本', data: dataCost,
+                            borderColor: '#9ca3af', borderDash: [5, 5], borderWidth: 1.5,
+                            fill: false, tension: 0.1, pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { 
+                        legend: { labels: { color: '#d1d5db', font: { size: 10 } } },
+                        // 🌟 恢復昨晚的高級提示框與自動算損益功能
+                        tooltip: { 
+                            backgroundColor: 'rgba(17, 24, 39, 0.95)', 
+                            titleColor: '#facc15',
+                            padding: 10,
+                            callbacks: {
+                                footer: function(tooltipItems) {
+                                    let currentVal = 0;
+                                    let costVal = 0;
+                                    tooltipItems.forEach(function(item) {
+                                        if (item.dataset.label.includes('市值')) currentVal = item.raw;
+                                        if (item.dataset.label.includes('成本')) costVal = item.raw;
+                                    });
+                                    const pnl = currentVal - costVal;
+                                    const prefix = pnl >= 0 ? '賺 +' : '賠 -';
+                                    return `--------------------\n💰 帳面損益: ${prefix}$${Math.abs(Math.round(pnl)).toLocaleString()}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { display: false },
+                        y: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: '#374151' } }
+                    }
+                }
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>
