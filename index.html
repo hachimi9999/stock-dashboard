@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>股票日曆</title>
-    <!-- 使用穩定版 Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 使用 Chart.js 繪製資產圖表 -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         .tw-up { color: #eb4d4b; } /* 漲幅紅 */
@@ -23,7 +21,6 @@
 <body class="bg-gray-900 text-gray-100 min-h-screen p-2 md:p-6 font-sans">
 
     <div class="max-w-7xl mx-auto space-y-4 md:space-y-6">
-        <!-- 頂部標頭 -->
         <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-gray-800 p-4 md:p-6 rounded-2xl shadow-xl border border-gray-700 gap-4">
             <div>
                 <h1 class="text-xl md:text-2xl font-bold text-yellow-500">📈 股票日曆</h1>
@@ -50,9 +47,7 @@
             </div>
         </header>
 
-        <!-- 三欄式核心數據面板 -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 bg-gray-950 p-4 rounded-2xl border border-gray-800 shadow-2xl">
-            <!-- 欄位一：當日持股總市值 -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 bg-gray-950 p-4 rounded-2xl border border-gray-800 shadow-2xl">
             <div class="p-4 rounded-xl bg-gray-900/40 border border-gray-800/60 flex flex-col justify-between min-h-[100px]">
                 <div class="text-xs text-gray-300 flex items-center gap-1.5 font-medium">📦 當日持股總市值</div>
                 <div class="my-2 flex items-baseline flex-wrap gap-2">
@@ -62,7 +57,6 @@
                 <div id="panelCurrentSub" class="text-[11px] text-gray-500 font-mono">較前次交易日 (----/--/--)</div>
             </div>
             
-            <!-- 欄位二：當日持股總成本 -->
             <div class="p-4 rounded-xl bg-gray-900/40 border border-gray-800/60 flex flex-col justify-between min-h-[100px]">
                 <div class="text-xs text-gray-300 flex items-center gap-1.5 font-medium">💼 當日持股總成本</div>
                 <div class="my-2 flex items-baseline flex-wrap gap-2">
@@ -72,7 +66,15 @@
                 <div id="panelCostSub" class="text-[11px] text-gray-500 font-mono">較前次交易日 (----/--/--)</div>
             </div>
 
-            <!-- 欄位三：當日持股報酬率 -->
+            <div class="p-4 rounded-xl bg-gray-900/40 border border-gray-800/60 flex flex-col justify-between min-h-[100px]">
+                <div class="text-xs text-gray-300 flex items-center gap-1.5 font-medium">💵 當日帳面損益</div>
+                <div class="my-2 flex items-baseline flex-wrap gap-2">
+                    <span id="panelTotalPnL" class="text-xl md:text-2xl font-extrabold text-gray-500 font-mono">$0</span>
+                    <span id="panelTotalPnLDiff" class="text-sm font-bold font-mono text-gray-500">(+0)</span>
+                </div>
+                <div id="panelPnLSub" class="text-[11px] text-gray-500 font-mono">較前次交易日 (----/--/--)</div>
+            </div>
+
             <div class="p-4 rounded-xl bg-gray-900/40 border border-gray-800/60 flex flex-col justify-between min-h-[100px]">
                 <div class="text-xs text-gray-300 flex items-center gap-1.5 font-medium">🏆 當日持股報酬率</div>
                 <div class="my-2 flex items-baseline flex-wrap gap-2">
@@ -83,9 +85,7 @@
             </div>
         </div>
 
-        <!-- 主區塊：日曆與輸入表單 -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-            <!-- 左側日曆 -->
             <div class="lg:col-span-2 bg-gray-800 p-3 md:p-6 rounded-2xl shadow-xl border border-gray-700">
                 <div class="grid grid-cols-7 gap-1 md:gap-2 text-center font-bold text-gray-400 mb-2 md:mb-4 text-xs md:text-sm">
                     <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
@@ -93,7 +93,6 @@
                 <div id="calendarGrid" class="grid grid-cols-7 gap-1 md:gap-2 min-h-[320px] md:min-h-[480px]"></div>
             </div>
 
-            <!-- 右側輸入表單 -->
             <div class="bg-gray-800 p-4 md:p-6 rounded-2xl shadow-xl border border-gray-700 flex flex-col">
                 <div class="flex justify-between items-center mb-3">
                     <h2 class="text-base md:text-lg font-bold text-white flex gap-2 items-center">
@@ -139,7 +138,6 @@
             </div>
         </div>
 
-        <!-- 庫存明細列表 -->
         <div class="bg-gray-800 p-4 md:p-6 rounded-2xl shadow-xl border border-gray-700">
             <div class="border-b border-gray-700 pb-2 mb-3">
                 <h3 class="text-base md:text-lg font-bold text-white flex gap-2 items-center">
@@ -152,7 +150,6 @@
             </div>
         </div>
 
-        <!-- 歷史走勢與圖表數據區 -->
         <div class="bg-gray-800 p-4 md:p-6 rounded-2xl shadow-xl border border-gray-700 space-y-6">
             <div class="border-b border-gray-700 pb-3 flex flex-wrap justify-between items-center gap-3">
                 <h2 class="text-lg md:text-xl font-bold text-white flex items-center gap-2">
@@ -161,9 +158,7 @@
                 <select id="perfStockFilter" class="bg-gray-950 p-2 rounded-lg border border-gray-600 text-xs md:text-sm text-yellow-500 font-bold focus:outline-none shadow-sm"></select>
             </div>
 
-            <!-- 圖表展示區 -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
-                <!-- 庫存佔比圓餅圖 -->
                 <div class="bg-gray-900 p-4 rounded-xl border border-gray-700 flex flex-col items-center">
                     <div class="text-sm font-bold text-gray-300 w-full mb-2 flex items-center gap-1">🥧 庫存佔比 (依選定日期)</div>
                     <div class="w-full h-[250px] relative">
@@ -171,7 +166,6 @@
                     </div>
                     <p id="pieEmptyState" class="text-xs text-gray-500 mt-2 hidden">當日無庫存紀錄</p>
                 </div>
-                <!-- 歷史走勢折線圖 -->
                 <div class="lg:col-span-2 bg-gray-900 p-4 rounded-xl border border-gray-700 flex flex-col">
                     <div class="flex justify-between items-center mb-2">
                         <div class="text-sm font-bold text-gray-300 flex items-center gap-1">📈 歷史資產與成本走勢</div>
@@ -187,7 +181,6 @@
                 </div>
             </div>
             
-            <!-- 歷史獲利表格 -->
             <div class="bg-gray-900 rounded-xl border border-gray-700 overflow-hidden">
                 <div class="bg-gray-800 p-3 border-b border-gray-700 text-sm font-bold text-green-400 flex items-center gap-2">🏆 歷史獲利戰果表 (已實現紀錄)</div>
                 <div class="overflow-x-auto">
@@ -203,13 +196,13 @@
                             </tr>
                         </thead>
                         <tbody id="realizedTableBody" class="divide-y divide-gray-800 text-gray-300"></tbody>
+                        <tfoot id="realizedTableFoot" class="bg-gray-900 text-white font-bold border-t-2 border-gray-700"></tfoot>
                     </table>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 彈出視窗：標的設定 -->
     <div id="settingsModal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50 p-4">
         <div class="bg-gray-800 window w-full max-w-md rounded-2xl border border-gray-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div class="p-4 border-b border-gray-700 flex justify-between items-center">
@@ -267,6 +260,7 @@
         
         const perfStockFilter = document.getElementById('perfStockFilter');
         const realizedTableBody = document.getElementById('realizedTableBody');
+        const realizedTableFoot = document.getElementById('realizedTableFoot');
 
         function init() {
             initDateSelectors();
@@ -457,7 +451,7 @@
             }
         }
 
-        // 渲染三大核心面板與個股明細比較
+        // 渲染四大核心面板與個股明細比較
         function renderDayDetails(dateStr) {
             selectedDateLabel.innerText = dateStr;
             const stockList = document.getElementById('stockList');
@@ -477,7 +471,8 @@
                     curTotalCost += Number(r.totalCost || 0);
                 }
             });
-            const curROI = curTotalCost > 0 ? ((curTotalCurrent - curTotalCost) / curTotalCost * 100) : 0;
+            const curPnL = curTotalCurrent - curTotalCost;
+            const curROI = curTotalCost > 0 ? (curPnL / curTotalCost * 100) : 0;
 
             // 前次交易日加總計算
             let prevTotalCurrent = 0, prevTotalCost = 0;
@@ -489,19 +484,27 @@
                     }
                 });
             }
-            const prevROI = prevTotalCost > 0 ? ((prevTotalCurrent - prevTotalCost) / prevTotalCost * 100) : 0;
+            const prevPnL = prevTotalCurrent - prevTotalCost;
+            const prevROI = prevTotalCost > 0 ? (prevPnL / prevTotalCost * 100) : 0;
 
-            // 更新三大數據面板
+            // 更新四大數據面板
             document.getElementById('panelTotalCurrent').innerText = `$${Math.round(curTotalCurrent).toLocaleString()}`;
             document.getElementById('panelTotalCost').innerText = `$${Math.round(curTotalCost).toLocaleString()}`;
+            
+            const pnlEl = document.getElementById('panelTotalPnL');
+            pnlEl.innerText = `${curPnL >= 0 ? '+' : ''}$${Math.round(curPnL).toLocaleString()}`;
+            pnlEl.className = `text-xl md:text-2xl font-extrabold font-mono ${curPnL >= 0 ? 'tw-up' : 'tw-down'}`;
+            
             document.getElementById('panelROI').innerText = `${curROI.toFixed(2)}%`;
 
             const currentDiff = curTotalCurrent - prevTotalCurrent;
             const costDiff = curTotalCost - prevTotalCost;
+            const pnlDiff = curPnL - prevPnL;
             const roiDiff = curROI - prevROI;
 
             const curDiffEl = document.getElementById('panelTotalCurrentDiff');
             const costDiffEl = document.getElementById('panelTotalCostDiff');
+            const pnlDiffEl = document.getElementById('panelTotalPnLDiff');
             const roiDiffEl = document.getElementById('panelROIDiff');
 
             if (prevDate && records.length > 0) {
@@ -511,17 +514,23 @@
                 costDiffEl.innerText = `(${costDiff >= 0 ? '+' : ''}${Math.round(costDiff).toLocaleString()})`;
                 costDiffEl.className = `text-sm font-bold font-mono ${costDiff >= 0 ? 'tw-up' : 'tw-down'}`;
 
+                pnlDiffEl.innerText = `(${pnlDiff >= 0 ? '+' : ''}${Math.round(pnlDiff).toLocaleString()})`;
+                pnlDiffEl.className = `text-sm font-bold font-mono ${pnlDiff >= 0 ? 'tw-up' : 'tw-down'}`;
+
                 roiDiffEl.innerText = `(${roiDiff >= 0 ? '+' : ''}${roiDiff.toFixed(2)}%)`;
                 roiDiffEl.className = `text-sm font-bold font-mono ${roiDiff >= 0 ? 'tw-up' : 'tw-down'}`;
 
                 document.getElementById('panelCurrentSub').innerText = `較前次交易日 (${prevDate})`;
                 document.getElementById('panelCostSub').innerText = `較前次交易日 (${prevDate})`;
+                document.getElementById('panelPnLSub').innerText = `較前次交易日 (${prevDate})`;
             } else {
                 curDiffEl.innerText = `(--)`; curDiffEl.className = "text-sm text-gray-500 font-mono";
                 costDiffEl.innerText = `(--)`; costDiffEl.className = "text-sm text-gray-500 font-mono";
+                pnlDiffEl.innerText = `(--)`; pnlDiffEl.className = "text-sm text-gray-500 font-mono";
                 roiDiffEl.innerText = `(--)`; roiDiffEl.className = "text-sm text-gray-500 font-mono";
                 document.getElementById('panelCurrentSub').innerText = `較前次交易日 (無歷史數據)`;
                 document.getElementById('panelCostSub').innerText = `較前次交易日 (無歷史數據)`;
+                document.getElementById('panelPnLSub').innerText = `較前次交易日 (無歷史數據)`;
             }
 
             renderDayPieChart(records); 
@@ -547,7 +556,6 @@
 
                 let individualDiffHTML = "";
                 if (prevDate && stockData[prevDate] && !isSell) {
-                    // 💡 修正核心：將條件改為 p.type !== 'sell'，完美相容所有舊帳本與無 type 屬性的舊資料
                     const prevStockItem = stockData[prevDate].find(p => p.code === item.code && p.type !== 'sell');
                     if (prevStockItem) {
                         const stockDiff = sCurrent - Number(prevStockItem.totalCurrent || 0);
@@ -767,8 +775,17 @@
                 realizedMap[d] = historyRealizedPnL;
             });
 
+            // 渲染已實現明細與加總
+            let sumRealizedCost = 0;
+            let sumRealizedCurrent = 0;
+            let sumRealizedPnL = 0;
+
             realizedTableBody.innerHTML = '';
             realizedHistory.reverse().forEach(h => {
+                sumRealizedCost += h.cost;
+                sumRealizedCurrent += h.current;
+                sumRealizedPnL += h.pnl;
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td class="p-3">${h.date}</td>
@@ -780,8 +797,22 @@
                 `;
                 realizedTableBody.appendChild(tr);
             });
+            
             if(realizedHistory.length === 0) {
                 realizedTableBody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-500">尚無符合的賣出落袋紀錄</td></tr>`;
+                realizedTableFoot.innerHTML = '';
+            } else {
+                // 渲染表尾加總列
+                const totalRate = sumRealizedCost > 0 ? ((sumRealizedPnL / sumRealizedCost) * 100).toFixed(1) : 0;
+                realizedTableFoot.innerHTML = `
+                    <tr>
+                        <td colspan="2" class="p-3 text-yellow-500 text-left">📊 總計加總</td>
+                        <td class="p-3 text-right text-gray-300">$${sumRealizedCost.toLocaleString()}</td>
+                        <td class="p-3 text-right text-gray-100">$${sumRealizedCurrent.toLocaleString()}</td>
+                        <td class="p-3 text-right text-base ${sumRealizedPnL >= 0 ? 'text-green-400' : 'text-red-400'}">${sumRealizedPnL >= 0 ? '+' : ''}$${sumRealizedPnL.toLocaleString()}</td>
+                        <td class="p-3 text-right ${sumRealizedPnL >= 0 ? 'text-green-500' : 'text-red-500'}">${totalRate}%</td>
+                    </tr>
+                `;
             }
 
             const range = document.getElementById('timeRangeSelect').value;
